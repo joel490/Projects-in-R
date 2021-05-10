@@ -1,0 +1,279 @@
+---
+title: "Math 433 Project 2"
+author: "Joél Heredia"
+date: "4/28/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(date)
+library(derivmkts)
+AMC <- read_excel('Options and prices 433 project.xlsx', sheet = 'AMC')
+PGNY <- read_excel('Options and prices 433 project.xlsx', sheet = 'PGNY')
+DB <- read_excel('Options and prices 433 project.xlsx', sheet = 'DB')
+
+```
+##ALL CODE DONE IN R
+
+##*Deutsche Bank's ADR was used along with U.S. interest rates to determine its respective implied volatility*
+
+##1. Black Scholes formula 
+
+```{r Black Scholes, tidy=TRUE}
+Black.Scholes <- function(S, K, r, sigma, delta = 0,  t, type){ #Function will assume diviends are 0 unless specified otherwise.
+  
+  d1 <- (log(S/K) + (r - delta + sigma^2/2)*t/365) / (sigma*sqrt(t))
+  d2 <- d1 - sigma*sqrt(t/365)
+  
+  c.price <- S*exp(-delta*t/365)*pnorm(d1) - K*exp(-r*t/365)*pnorm(d2)
+
+  p.price <- K*exp(-r*t/365)*pnorm(-d2) - S*exp(-delta*t/365)*pnorm(-d1) 
+  
+  if(type == 'call'){
+    price <- c.price
+  } 
+  
+  if (type == 'put'){
+    price <- p.price
+  }
+  
+  return(price)
+}
+```
+
+##2. Check Put/Call parity
+```{r Put/Call Parity Check , tidy=TRUE}
+for(i in 1){
+  if(Black.Scholes(250, 260, .04, .2, .02, .5, 'call') + 260*exp(-.04*.5) == Black.Scholes(250, 260, .04, .2, .02, .5, 'put') + 250*exp(-.02 *.5)){
+  
+    print("Put/Call parity holds")
+  } else{
+    
+    print("Put/Call parity does not hold")
+  }
+}
+
+```
+#We see that Put/Call parity holds for these option prices, therefore proving the code can computate option prices correcctly.
+
+
+##3. & 4. Volatility
+```{r Behavior depending on Volatility, fig.align='center', tidy=TRUE}
+x <- seq(from = 0, to = 50000, by = 1)
+c <- c()
+p <- c()
+
+for( i in 1:length(x)){
+  c <- c(c, Black.Scholes(250, 260, .04, x[i], .02, .5, 'call'))
+  
+  p <- c(p, Black.Scholes(250, 260, .04, x[i], .02, .5, 'put'))
+}
+
+plot(x, c, main = "Call price behavior for sigma from 0 to infinity", 
+     xlab = "Volatility", ylab = "Prices", col = 'blue')
+
+plot(x, p, main = "Put price behavior for sigma from 0 to infinity", 
+     xlab = "Volatility", ylab = "Prices", col = 'red')
+```
+
+#As the volaility approaches infinity, Call prices approach the Stock price while Put prices approach the Strike price.
+
+```{r Implied Volatility, tidy=TRUE}
+
+implied.volatility <- function(S, K, r, t, price, date, type) {
+  is.numeric(t)
+  implied.vol.data <- data.frame(date, implied.volatility = rep(0,length(date)),  S, K, price)
+  
+  for(i in 1:length(S)){
+
+    
+    if (type == "call") {
+      
+      implied.vol.data[i,"implied.volatility"] <- bscallimpvol(S[i],  K[i], r[i], t[i], 0, price[i])
+      
+      
+    } else{
+      
+      implied.vol.data[i, "implied.volatility"] <- bscallimpvol(S[i],  K[i], r[i], t[i], 0, price[i])
+    }
+  }
+  return(implied.vol.data)
+}
+
+
+implied.volatility(head(AMC$`S(T)`), head(AMC$Strike), head(AMC$rate), head(AMC$exp), head(AMC$Call), head(AMC$Date), "call")
+
+```
+#Above is the data table our function outputs using AMC's data as an example
+
+###Implied Volatility
+
+## Progeny's Implied Volatility 
+
+```{r PGNY , tidy=TRUE}
+#First period
+PGNY.1 <- PGNY[seq(1,17),]
+
+PGNY.1st.Call.implied <- implied.volatility(PGNY.1$`S(T)`, PGNY.1$Strike, PGNY.1$rate, PGNY.1$exp, PGNY.1$Call, PGNY.1$Date, "call")
+
+PGNY.1st.Put.implied <- implied.volatility(PGNY.1$`S(T)`, PGNY.1$Strike, PGNY.1$rate, PGNY.1$exp, PGNY.1$Put, PGNY.1$Date, "put")
+
+#Second period
+PGNY.2 <- PGNY[seq(18,34),]
+
+PGNY.2nd.Call.implied <- implied.volatility(PGNY.2$`S(T)`, PGNY.2$Strike, PGNY.2$rate, PGNY.2$exp, PGNY.2$Call, PGNY.2$Date, "call")
+
+PGNY.2nd.Put.implied <- implied.volatility(PGNY.2$`S(T)`, PGNY.2$Strike, PGNY.2$rate, PGNY.2$exp, PGNY.2$Put, PGNY.2$Date, "put")
+
+#Third
+PGNY.3 <- PGNY[seq(35,51),]
+
+PGNY.3rd.Call.implied <- implied.volatility(PGNY.3$`S(T)`, PGNY.3$Strike, PGNY.3$rate, PGNY.3$exp, PGNY.3$Call, PGNY.3$Date, "call")
+
+PGNY.3rd.Put.implied <- implied.volatility(PGNY.3$`S(T)`, PGNY.3$Strike, PGNY.3$rate, PGNY.3$exp, PGNY.3$Put, PGNY.3$Date, "put")
+
+#Fourth Period
+PGNY.4 <- PGNY[seq(52,68),]
+
+PGNY.4th.Call.implied <- implied.volatility(PGNY.4$`S(T)`, PGNY.4$Strike, PGNY.4$rate, PGNY.4$exp, PGNY.4$Call, PGNY.4$Date, "call")
+
+PGNY.4th.Put.implied <- implied.volatility(PGNY.4$`S(T)`, PGNY.4$Strike, PGNY.4$rate, PGNY.4$exp, PGNY.4$Put, PGNY.4$Date, "put")
+
+#Fifth period
+PGNY.5 <- PGNY[seq(35,51),]
+
+PGNY.5th.Call.implied <- implied.volatility(PGNY.5$`S(T)`, PGNY.5$Strike, PGNY.5$rate, PGNY.5$exp, PGNY.5$Call, PGNY.5$Date, "call")
+
+PGNY.5th.Put.implied <- implied.volatility(PGNY.5$`S(T)`, PGNY.5$Strike, PGNY.5$rate, PGNY.5$exp, PGNY.5$Put, PGNY.5$Date, "put")
+
+##Table of Implied volatility per period
+#Average of each period
+PGNY.1st <- mean(PGNY.1st.Call.implied[,"implied.volatility"])
+PGNY.2nd <- mean(PGNY.2nd.Call.implied[,"implied.volatility"])
+PGNY.3rd <- mean(PGNY.3rd.Call.implied[,"implied.volatility"])
+PGNY.4th <- mean(PGNY.4th.Call.implied[,"implied.volatility"])
+PGNY.5th <- mean(PGNY.5th.Call.implied[,"implied.volatility"])
+                
+PGNY.Vol <- data.frame(PGNY.1st, PGNY.2nd, PGNY.3rd, PGNY.4th, PGNY.5th)
+
+implied.volatility(head(PGNY$`S(T)`), head(PGNY$Strike), head(PGNY$rate), head(PGNY$exp), head(PGNY$Call), head(PGNY$Date), "call")
+PGNY.Vol
+plot(data = PGNY.Vol, x = seq(1:5), y = PGNY.Vol[1,], type = "l", main = "Progeny's Implied Volatility per Period", xlab = "Period", ylab = "Avg Implied Volatility")
+```
+
+## Deutsche Bank's Implied Volatility 
+
+```{r DB, tidy=TRUE}
+#First period
+DB.1 <- DB[seq(1,17),]
+
+DB.1st.Call.implied <- implied.volatility(DB.1$`S(T)`, DB.1$Strike, DB.1$rate, DB.1$exp, DB.1$Call, DB.1$Date, "call")
+
+DB.1st.Put.implied <- implied.volatility(DB.1$`S(T)`, DB.1$Strike, DB.1$rate, DB.1$exp, DB.1$Put, DB.1$Date, "put")
+
+#Second period
+DB.2 <- DB[seq(18,34),]
+
+DB.2nd.Call.implied <- implied.volatility(DB.2$`S(T)`, DB.2$Strike, DB.2$rate, DB.2$exp, DB.2$Call, DB.2$Date, "call")
+
+DB.2nd.Put.implied <- implied.volatility(DB.2$`S(T)`, DB.2$Strike, DB.2$rate, DB.2$exp, DB.2$Put, DB.2$Date, "put")
+
+#Third
+DB.3 <- DB[seq(35,51),]
+
+DB.3rd.Call.implied <- implied.volatility(DB.3$`S(T)`, DB.3$Strike, DB.3$rate, DB.3$exp, DB.3$Call, DB.3$Date, "call")
+
+DB.3rd.Put.implied <- implied.volatility(DB.3$`S(T)`, DB.3$Strike, DB.3$rate, DB.3$exp, DB.3$Put, DB.3$Date, "put")
+
+#Fourth Period
+DB.4 <- DB[seq(52,68),]
+
+DB.4th.Call.implied <- implied.volatility(DB.4$`S(T)`, DB.4$Strike, DB.4$rate, DB.4$exp, DB.4$Call, DB.4$Date, "call")
+
+DB.4th.Put.implied <- implied.volatility(DB.4$`S(T)`, DB.4$Strike, DB.4$rate, DB.4$exp, DB.4$Put, DB.4$Date, "put")
+
+#Fifth period
+DB.5 <- DB[seq(35,51),]
+
+DB.5th.Call.implied <- implied.volatility(DB.5$`S(T)`, DB.5$Strike, DB.5$rate, DB.5$exp, DB.5$Call, DB.5$Date, "call")
+
+DB.5th.Put.implied <- implied.volatility(DB.5$`S(T)`, DB.5$Strike, DB.5$rate, DB.5$exp, DB.5$Put, DB.5$Date, "put")
+
+##Table of Implied volatility per period
+#Average of each period
+DB.1st <- mean(DB.1st.Call.implied[,"implied.volatility"])
+DB.2nd <- mean(DB.2nd.Call.implied[,"implied.volatility"])
+DB.3rd <- mean(DB.3rd.Call.implied[,"implied.volatility"])
+DB.4th <- mean(DB.4th.Call.implied[,"implied.volatility"])
+DB.5th <- mean(DB.5th.Call.implied[,"implied.volatility"])
+                
+DB.Vol <- data.frame(DB.1st, DB.2nd, DB.3rd, DB.4th, DB.5th)
+
+implied.volatility(head(DB$`S(T)`), head(DB$Strike), head(DB$rate), head(DB$exp), head(DB$Call), head(DB$Date), "call")
+DB.Vol
+plot(data = DB.Vol, x = seq(1:5), y = DB.Vol[1,], type = "l", main = "Deutsche Bank's Implied Volatility per Period", xlab = "Period", ylab = "Avg Implied Volatility")
+
+```
+
+## AMC's Implied Volatility 
+
+```{r AMC, tidy=TRUE}
+#First period
+AMC.1 <- AMC[seq(1,17),]
+
+AMC.1st.Call.implied <- implied.volatility(AMC.1$`S(T)`, AMC.1$Strike, AMC.1$rate, AMC.1$exp, AMC.1$Call, AMC.1$Date, "call")
+
+AMC.1st.Put.implied <- implied.volatility(AMC.1$`S(T)`, AMC.1$Strike, AMC.1$rate, AMC.1$exp, AMC.1$Put, AMC.1$Date, "put")
+
+#Second period
+AMC.2 <- AMC[seq(18,34),]
+
+AMC.2nd.Call.implied <- implied.volatility(AMC.2$`S(T)`, AMC.2$Strike, AMC.2$rate, AMC.2$exp, AMC.2$Call, AMC.2$Date, "call")
+
+AMC.2nd.Put.implied <- implied.volatility(AMC.2$`S(T)`, AMC.2$Strike, AMC.2$rate, AMC.2$exp, AMC.2$Put, AMC.2$Date, "put")
+
+#Third
+AMC.3 <- AMC[seq(35,51),]
+
+AMC.3rd.Call.implied <- implied.volatility(AMC.3$`S(T)`, AMC.3$Strike, AMC.3$rate, AMC.3$exp, AMC.3$Call, AMC.3$Date, "call")
+
+AMC.3rd.Put.implied <- implied.volatility(AMC.3$`S(T)`, AMC.3$Strike, AMC.3$rate, AMC.3$exp, AMC.3$Put, AMC.3$Date, "put")
+
+#Fourth Period
+AMC.4 <- AMC[seq(52,68),]
+
+AMC.4th.Call.implied <- implied.volatility(AMC.4$`S(T)`, AMC.4$Strike, AMC.4$rate, AMC.4$exp, AMC.4$Call, AMC.4$Date, "call")
+
+AMC.4th.Put.implied <- implied.volatility(AMC.4$`S(T)`, AMC.4$Strike, AMC.4$rate, AMC.4$exp, AMC.4$Put, AMC.4$Date, "put")
+
+#Fifth period
+AMC.5 <- AMC[seq(35,51),]
+
+AMC.5th.Call.implied <- implied.volatility(AMC.5$`S(T)`, AMC.5$Strike, AMC.5$rate, AMC.5$exp, AMC.5$Call, AMC.5$Date, "call")
+
+AMC.5th.Put.implied <- implied.volatility(AMC.5$`S(T)`, AMC.5$Strike, AMC.5$rate, AMC.5$exp, AMC.5$Put, AMC.5$Date, "put")
+
+##Table of Implied volatility per period
+#Average of each period
+AMC.1st <- mean(AMC.1st.Call.implied[,"implied.volatility"])
+AMC.2nd <- mean(AMC.2nd.Call.implied[,"implied.volatility"])
+AMC.3rd <- mean(AMC.3rd.Call.implied[,"implied.volatility"])
+AMC.4th <- mean(AMC.4th.Call.implied[,"implied.volatility"])
+AMC.5th <- mean(AMC.5th.Call.implied[,"implied.volatility"])
+                
+AMC.Vol <- data.frame(AMC.1st, AMC.2nd, AMC.3rd, AMC.4th, AMC.5th)
+
+
+implied.volatility(head(AMC$`S(T)`), head(AMC$Strike), head(AMC$rate), head(AMC$exp), head(AMC$Call), head(AMC$Date), "call")
+AMC.Vol
+plot(data = AMC.Vol, x = seq(1:5), y = AMC.Vol[1,], type = "l", main = "AMC's Implied Volatility per Period", xlab = "Period", ylab = "Avg Implied Volatility")
+```
+
+## Conclusion
+#Volatility is in all three comapanies varies reletively with each other with AMC having the largest peak in its first period. This is a consequence of the events of retail traders, largely from r/Wallstreetbets, purchasing huge amounts of shares into the company towards end of January. 
+
+#The Progeny holds a modest standard deviation of its volatility during the 5 periods with a range of 0.60 to 0/75. 
+
+#Deutsche Bank had the smallest change in volatility with its peak and minimum only being 0.05 units from each other. This could be due to the leveled interest rates in the European union. 
